@@ -1,0 +1,179 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from random import randrange
+import pandas as pd
+import math
+import matplotlib.lines as mlines
+
+
+class K_Means:
+    def __init__(self, k=3, tolerance=0.0001, max_iterations=500):
+        self.centroids = {}
+        self.classes = {}
+        self.objective = []
+        self.k = k
+        self.tolerance = tolerance
+        self.max_iterations = max_iterations
+        self.total_iteration = 0
+
+    # Function that computes the Euclidean distance between two data points.
+    def calcDist(self, point1, point2):
+        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+    def calcObj(self, centroid, points):
+        distances = [self.calcDist(centroid, p) for p in points]
+        return round(sum(distances), 2)
+
+    def fit(self, data):
+
+        # initialize the centroids, the first 'k' elements in the dataset will be our initial centroids
+        for i in range(self.k):
+            self.centroids[i] = data[i]
+
+        # begin iterations
+        for i in range(self.max_iterations):
+            for i in range(self.k):
+                self.classes[i] = []
+
+            # find the distance between the point and cluster; choose the nearest centroid
+            for features in data:
+                distances = [np.linalg.norm(features - self.centroids[centroid]) for centroid in self.centroids]
+                classification = distances.index(min(distances))
+                self.classes[classification].append(features)
+
+            previous = dict(self.centroids)
+
+            # average the cluster datapoints to re-calculate the centroids
+            for classification in self.classes:
+                self.centroids[classification] = np.average(self.classes[classification], axis=0)
+
+            isOptimal = True
+
+            for centroid in self.centroids:
+
+                original_centroid = previous[centroid]
+                curr = self.centroids[centroid]
+
+                if np.sum((curr - original_centroid) / original_centroid * 100.0) > self.tolerance:
+                    isOptimal = False
+
+            if isOptimal:
+                break
+
+            value = 0
+            for cluster_k in range(self.k):
+                value += self.calcObj(self.centroids[cluster_k], self.classes[cluster_k])
+                self.objective.insert(self.total_iteration, [cluster_k, value])
+
+            self.total_iteration += 1
+
+    def get_total_iteration(self):
+        return self.total_iteration
+
+    def pred(self, data):
+        distances = [np.linalg.norm(data - self.centroids[centroid]) for centroid in self.centroids]
+        classification = distances.index(min(distances))
+        return classification
+
+
+def read(file):
+    return pd.read_csv(file, header=None)
+
+
+def get_features(filename):
+    df = read(filename)
+    return df.iloc[:, [0, 1]].values
+
+
+def create_centroids(data, num_clusters=3):
+    centroids = []
+    a, b = np.shape(data)
+    for j in range(0, num_clusters):
+        temp = []
+        for i in range(0, b):
+            maxx = int(max(data[:, i]))
+            minx = int(min(data[:, i]))
+            temp.append(randrange(minx, maxx))
+        centroids.append(temp)
+    return np.asarray(centroids)
+
+
+def make_base_plot(file_number):
+    file = "dataset_{num:}.txt".format(num=file_number)
+    title = "Dataset {num:}\nBase Plot".format(num=file_number)
+    features = get_features(file)
+    plt.scatter(features[:, 0], features[:, 1], color='y', alpha=0.5, s=20)
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.title(title)
+    plt.show()
+
+
+def initial_cluster(file_number, k=5):
+    file = "dataset_{num:}.txt".format(num=file_number)
+    title = "Dataset {num:}\n Initial Cluster\n k:{number_2:}".format(num=file_number, number_2=k)
+    features = get_features(file)
+    centroid = create_centroids(features, num_clusters=k)
+    plt.scatter(features[:, 0], features[:, 1], color='y', alpha=0.5, s=20)
+    plt.create_scatter(centroid[:, 0], centroid[:, 1], color='g', alpha=1, s=100, marker="*")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.title(title)
+    plt.show()
+
+
+def final_cluster(file_number, k=5):
+    file = "dataset_{num:}.txt".format(num=file_number)
+    title = "Dataset {num:}\n Final Cluster\n k:{number_2:}".format(num=file_number, number_2=k)
+    features = get_features(file)
+    km = K_Means(k)
+    km.fit(features)
+    print(km.centroids)
+    print("Total Iteration:", km.get_total_iteration())
+
+    colors = ['black', 'blue', 'purple', 'yellow', 'red', 'lime', 'cyan', 'orange', 'gray']
+
+    for classification in km.classes:
+        color = colors[classification]
+        for features in km.classes[classification]:
+            plt.scatter(features[0], features[1], color=color, s=20, alpha=0.5)
+
+    colors_2 = ["#fe7c00", "#f16669", "#00b4ab", "#0269a4", "#011b56", "#a74482", "#82d07b", "#411391"]
+    for centroid in km.centroids:
+        color = colors_2[centroid]
+        plt.scatter(km.centroids[centroid][0], km.centroids[centroid][1], color=color, s=100, marker="*",
+                    edgecolors='face')
+    plt.title(title)
+    plt.show()
+
+
+def objective(file_number, k=5):
+    file = "dataset_{num:}.txt".format(num=file_number)
+    title = "Dataset {num:}\n Objection Function Value\n k:{number_2:}".format(num=file_number, number_2=k)
+    features = get_features(file)
+    km = K_Means(k)
+    km.fit(features)
+    print("Total Iteration:", km.get_total_iteration())
+    x = []
+    y = []
+    for item in km.objective:
+        x.append(item[0])
+        y.append(item[1])
+
+    plt.plot(x, y, marker='o', linewidth=2)
+
+    plt.xlabel("Iteration")
+    plt.ylabel("Objection Function Value")
+    plt.title(title)
+    plt.show()
+
+
+def main():
+    # make_base_plot(3)
+    # initial_cluster(1, k=3)
+    final_cluster(1, k=3)
+    #objective(3, k=8)
+
+
+if __name__ == "__main__":
+    main()
